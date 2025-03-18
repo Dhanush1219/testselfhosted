@@ -1,35 +1,34 @@
+# Use an official Ubuntu base image
 FROM ubuntu:20.04
 
-# Install dependencies
+# Set environment variables to avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update and install required packages
 RUN apt-get update && apt-get install -y \
-    curl \
-    jq \
-    unzip \
-    git \
-    ca-certificates \
     sudo \
-    apt-transport-https \
-    lsb-release \
+    curl \
     gnupg \
-    && rm -rf /var/lib/apt/lists/*
+    lsb-release
 
-# Install Docker CLI (NOT the daemon)
-RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
-    echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list && \
+# Install Docker (latest version)
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - && \
+    echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
     apt-get update && \
-    apt-get install -y docker-ce-cli
+    apt-get install -y docker-ce docker-ce-cli containerd.io
 
-# Add user for running the agent
+# Create a non-root user and grant sudo privileges
 RUN useradd -m agentuser && echo "agentuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Switch to the new user
+# Set working directory and copy files
+WORKDIR /azp
+COPY start.sh /azp/start.sh
+
+# Ensure correct ownership and permissions
+RUN chown agentuser:agentuser /azp/start.sh && chmod +x /azp/start.sh
+
+# Switch to non-root user
 USER agentuser
 
-# Set work directory
-WORKDIR /azp
-
-# Copy entrypoint script
-COPY start.sh /azp/start.sh
-RUN chmod +x /azp/start.sh
-
-ENTRYPOINT ["/azp/start.sh"]
+# Start Docker inside the container and run the agent
+CMD sudo service docker start && /azp/start.sh
