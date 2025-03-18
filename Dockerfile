@@ -1,37 +1,28 @@
-# Use an official Ubuntu base image
 FROM ubuntu:20.04
 
-# Set environment variables to avoid interactive prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Update and install required packages
+# Install dependencies
 RUN apt-get update && apt-get install -y \
-    sudo \
-    curl \
-    gnupg \
-    lsb-release
+    curl sudo unzip jq docker.io && \
+    apt-get clean
 
-# Install Docker (latest version)
-RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - && \
-    echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y docker-ce docker-ce-cli containerd.io
+# Set environment variables
+ENV AGENT_DIR=/agent
+ENV AZP_AGENT_NAME=selfhosted-agent
+ENV AZP_POOL=Default
 
-# Create a non-root user and grant sudo privileges
-RUN useradd -m agentuser && echo "agentuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+# Create agent directory
+RUN mkdir -p ${AGENT_DIR} && chmod 777 ${AGENT_DIR}
+WORKDIR ${AGENT_DIR}
 
-# Set working directory and copy files
-WORKDIR /azp
-COPY start.sh /azp/start.sh
+# Install Azure DevOps agent
+RUN curl -LsS https://vstsagentpackage.azureedge.net/agent/3.225.0/vsts-agent-linux-x64-3.225.0.tar.gz | tar -xz
+RUN ./config.sh --unattended --url ${AZP_URL} --auth pat --token ${AZP_TOKEN} --pool ${AZP_POOL} --agent ${AZP_AGENT_NAME} --replace
 
-# Ensure correct ownership and permissions
-RUN chown agentuser:agentuser /azp/start.sh && chmod +x /azp/start.sh
+# Install Kaniko
+RUN mkdir -p /kaniko && cd /kaniko \
+    && curl -sSLO https://github.com/GoogleContainerTools/kaniko/releases/latest/download/executor \
+    && chmod +x executor
 
-# Switch to non-root user
-USER agentuser
+# Start the agent
+CMD ["./svc.sh", "run"]
 
-# Disable ulimits for Docker inside the container
-RUN sudo sed -i 's/^ulimit/#ulimit/g' /etc/init.d/docker
-
-# Start Docker inside the container and run the agent
-CMD sudo service docker start && /azp/start.sh
