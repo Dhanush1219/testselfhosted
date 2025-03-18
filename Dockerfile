@@ -65,7 +65,8 @@ RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
 
 # Install Kaniko Executor
 RUN mkdir -p /kaniko && \
-    curl -L https://github.com/GoogleContainerTools/kaniko/releases/latest/download/executor -o /kaniko/executor && \
+    curl -L https://github.com/GoogleContainerTools/kaniko/releases/latest/download/executor -o /kaniko/executor.tmp && \
+    mv /kaniko/executor.tmp /kaniko/executor && \
     chmod +x /kaniko/executor && \
     mv /kaniko/executor /usr/local/bin/kaniko
 
