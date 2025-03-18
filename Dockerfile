@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
 
 # Set environment variables
 ENV AGENT_DIR=/agent
-ENV AZP_AGENT_NAME=selfhosted-agent
+ENV AZP_AGENT_NAME=ado-agent
 ENV AZP_POOL=Default
 
 # Create agent directory
@@ -23,6 +23,8 @@ RUN mkdir -p /kaniko && cd /kaniko \
     && curl -sSLO https://github.com/GoogleContainerTools/kaniko/releases/latest/download/executor \
     && chmod +x executor
 
-# Start the agent
-CMD ["./svc.sh", "run"]
+# Fix: Disable ulimits inside the Docker init script to prevent errors
+RUN sudo sed -i 's/^ulimit/#ulimit/g' /etc/init.d/docker
 
+# Start Docker service when the container starts
+CMD ["sh", "-c", "service docker start && ./svc.sh run"]
