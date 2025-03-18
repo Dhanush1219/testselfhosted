@@ -30,5 +30,8 @@ RUN chown agentuser:agentuser /azp/start.sh && chmod +x /azp/start.sh
 # Switch to non-root user
 USER agentuser
 
+# Disable ulimits for Docker inside the container
+RUN sudo sed -i 's/^ulimit/#ulimit/g' /etc/init.d/docker
+
 # Start Docker inside the container and run the agent
 CMD sudo service docker start && /azp/start.sh
