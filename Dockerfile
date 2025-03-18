@@ -10,8 +10,15 @@ ENV AGENT_DIR=/agent
 ENV AZP_AGENT_NAME=ado-agent
 ENV AZP_POOL=Default
 
-# Create agent directory
-RUN mkdir -p ${AGENT_DIR} && chmod 777 ${AGENT_DIR}
+# Create a non-root user
+RUN useradd -m agentuser && echo "agentuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Create agent directory and set ownership
+RUN mkdir -p ${AGENT_DIR} && chown agentuser:agentuser ${AGENT_DIR}
+
+# Switch to the non-root user
+USER agentuser
+
 WORKDIR ${AGENT_DIR}
 
 # Install Azure DevOps agent
@@ -23,8 +30,11 @@ RUN mkdir -p /kaniko && cd /kaniko \
     && curl -sSLO https://github.com/GoogleContainerTools/kaniko/releases/latest/download/executor \
     && chmod +x executor
 
-# Fix: Disable ulimits inside the Docker init script to prevent errors
+# Switch back to root for Docker service
+USER root
+
+# Fix: Disable ulimits inside the Docker init script
 RUN sudo sed -i 's/^ulimit/#ulimit/g' /etc/init.d/docker
 
 # Start Docker service when the container starts
-CMD ["sh", "-c", "service docker start && ./svc.sh run"]
+CMD ["sh", "-c", "service docker start && su - agentuser -c './svc.sh run'"]
