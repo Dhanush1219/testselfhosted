@@ -65,8 +65,7 @@ RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
 
 # Install Kaniko Executor
 RUN mkdir -p /kaniko && \
-    curl -L https://github.com/GoogleContainerTools/kaniko/releases/latest/download/executor -o /kaniko/executor.tmp && \
-    mv /kaniko/executor.tmp /kaniko/executor && \
+    curl -L https://github.com/GoogleContainerTools/kaniko/releases/latest/download/executor -o /kaniko/executor && \
     chmod +x /kaniko/executor && \
     mv /kaniko/executor /usr/local/bin/kaniko
 
@@ -75,14 +74,15 @@ RUN useradd -m azureuser && \
     usermod -aG sudo azureuser && \
     mkdir -p /azp/agent && \
     chown -R azureuser:azureuser /azp && \
-    chmod -R 777 /azp/agent
+    chmod -R 777 /azp/agent && \
+    mkdir -p /kaniko/.docker && \
+    chown -R azureuser:azureuser /kaniko
 
 # Switch to work directory
 WORKDIR /azp/agent
 
 # Install Azure DevOps agent
 RUN curl -L https://vstsagentpackage.azureedge.net/agent/3.220.2/vsts-agent-linux-x64-3.220.2.tar.gz -o vsts-agent.tar.gz && \
-    mkdir -p /azp/agent && \
     tar -zxvf vsts-agent.tar.gz -C /azp/agent && \
     rm vsts-agent.tar.gz && \
     chown -R azureuser:azureuser /azp/agent && \
@@ -94,6 +94,10 @@ COPY start.sh /azp/agent/start.sh
 # Grant execution permission
 RUN chmod +x /azp/agent/start.sh && \
     chown -R azureuser:azureuser /azp/agent/start.sh
+
+# Set Kaniko environment variables
+ENV HOME /kaniko
+ENV USER azureuser
 
 # Switch to non-root user
 USER azureuser
